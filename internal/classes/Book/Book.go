@@ -119,3 +119,18 @@ func Get(id uint) *Book {
 
 	return &book
 }
+
+func New(book Book) error {
+	db, err := sql.Open("postgres", env.GetEnvVar("DB_CONNECTION_STRING"))
+	if err != nil {
+		return err
+	}
+
+	if book.Series != nil {
+		_, err = db.Exec("INSERT INTO books (author, title, genre, age, cover_url, series, series_book_num) VALUES ($1, $2, $3, $4, $5, $6, $7)", book.Author, book.Title, book.Genre, book.Age, book.CoverUrl, book.Series.Name, book.Series.Number)
+		return err
+	}
+
+	_, err = db.Exec("INSERT INTO books (author, title, genre, age, cover_url) VALUES ($1, $2, $3, $4, $5)", book.Author, book.Title, book.Genre, book.Age, book.CoverUrl)
+	return err
+}
