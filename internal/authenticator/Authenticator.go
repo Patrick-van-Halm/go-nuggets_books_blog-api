@@ -1,6 +1,7 @@
-package main
+package authenticator
 
 import (
+	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/arrayTools"
 	"net/http"
 	"strings"
 )
@@ -12,7 +13,7 @@ func AuthorizationMiddleware(next http.Handler) http.Handler {
 		auth := strings.Split(authorization, " ")
 		if authorization != "" && len(auth) >= 2 && auth[0] == "Bearer" {
 			allowedTokens := RequestAuthorizationTokens()
-			if contains(allowedTokens, auth[1]) {
+			if arrayTools.StringArrayContains(allowedTokens, auth[1]) {
 				next.ServeHTTP(w, r)
 				isServed = true
 			}
@@ -23,8 +24,6 @@ func AuthorizationMiddleware(next http.Handler) http.Handler {
 		}
 	})
 }
-
-
 
 func RequestAuthorizationTokens() []string {
 	return []string{
