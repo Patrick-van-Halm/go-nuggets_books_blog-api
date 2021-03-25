@@ -2,40 +2,34 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/classes/Book"
 	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/classes/Review"
 	"github.com/gorilla/mux"
+	"go.uber.org/zap"
 	"io"
-	"log"
 	"net/http"
 )
 
-func BooksHandler(w http.ResponseWriter, r *http.Request) {
+func booksHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 		case http.MethodGet:
-			BooksHandlerGet(w)
+			booksHandlerGet(w)
 			break
 		case http.MethodPost:
-			BooksHandlerPost(w, r.Body)
+			booksHandlerPost(w, r.Body)
 			break
 	}
 }
 
-func BooksHandlerPost(w http.ResponseWriter, body io.ReadCloser) {
+func booksHandlerPost(w http.ResponseWriter, body io.ReadCloser) {
 	var data book.Book
-	decoder := json.NewDecoder(body)
-	if err := decoder.Decode(&data); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Invalid request payload"))
+	if err := parseJsonFromBody(body, &data); err != nil {
+		handleHttpError(w, "an error occurred whilst parsing json", err, http.StatusInternalServerError)
 		return
 	}
-	defer body.Close()
 
-	if err := book.New(data); err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Internal server error"))
+	if err := book.New(db, data); err != nil {
+		handleHttpError(w, "an error occurred whilst creating a new book", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -43,63 +37,49 @@ func BooksHandlerPost(w http.ResponseWriter, body io.ReadCloser) {
 	w.Write([]byte("Created"))
 }
 
-func BooksHandlerGet(w http.ResponseWriter) {
-	b, err := json.Marshal(book.GetAll())
-	if err != nil {
-		fmt.Println(err)
-		w.WriteHeader(500)
-		w.Write([]byte("Something went wrong"))
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(b)
+func booksHandlerGet(w http.ResponseWriter) {
+	handleJsonResponse(w, book.GetAll(db))
 }
 
-func BookByIdHandler(w http.ResponseWriter, r *http.Request) {
+func bookByIdHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	book := book.GetWithHash(vars["id"])
-	if book == nil {
-		w.WriteHeader(404)
-		w.Write([]byte("Not Found"))
-		return
-	}
-
-	b, err := json.Marshal(book)
-	if err != nil {
-		fmt.Println(err)
-		w.WriteHeader(500)
-		w.Write([]byte("Something went wrong"))
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(b)
+	handleJsonResponse(w, book.GetWithHash(db, vars["id"]))
 }
 
-func ReviewsHandler(w http.ResponseWriter, r *http.Request) {
-	b, err := json.Marshal(review.GetAll())
-	if err != nil {
-		fmt.Println(err)
-		w.WriteHeader(500)
-		w.Write([]byte("Something went wrong"))
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(b)
+func reviewsHandler(w http.ResponseWriter, r *http.Request) {
+	handleJsonResponse(w, review.GetAll())
 }
 
-func ReviewByIdHandler(w http.ResponseWriter, r *http.Request) {
+func reviewByIdHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	b, err := json.Marshal(review.GetWithHash(vars["id"]))
+
+	handleJsonResponse(w, review.GetWithHash(vars["id"]))
+}
+
+func handleHttpError(w http.ResponseWriter, message string, err error, code int) {
+	logger.Error(message,
+		zap.String("error", err.Error()),
+	)
+	http.Error(w, http.StatusText(code), code)
+}
+
+func writeJsonResponse(w http.ResponseWriter, json []byte) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(json)
+}
+
+func handleJsonResponse(w http.ResponseWriter, value interface{}) {
+	b, err := json.Marshal(value)
 	if err != nil {
-		fmt.Println(err)
-		w.WriteHeader(500)
-		w.Write([]byte("Something went wrong"))
+		handleHttpError(w, "an error occurred whilst encoding json", err, http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(b)
+	writeJsonResponse(w, b)
+}
+
+func parseJsonFromBody(body io.ReadCloser, data interface{}) error {
+	decoder := json.NewDecoder(body)
+	defer body.Close()
+	return decoder.Decode(&data)
 }
