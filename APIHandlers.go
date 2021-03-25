@@ -47,13 +47,13 @@ func bookByIdHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func reviewsHandler(w http.ResponseWriter, r *http.Request) {
-	handleJsonResponse(w, review.GetAll())
+	handleJsonResponse(w, review.GetAll(db))
 }
 
 func reviewByIdHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	handleJsonResponse(w, review.GetWithHash(vars["id"]))
+	handleJsonResponse(w, review.GetWithHash(db, vars["id"]))
 }
 
 func handleHttpError(w http.ResponseWriter, message string, err error, code int) {
