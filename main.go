@@ -16,13 +16,13 @@ var db *sql.DB
 var logger *zap.Logger
 
 func init() {
-	var err error
-
 	// Setup logger
-	if logger, err = zap.NewProduction(); err != nil {
+	logger, err := zap.NewProduction()
+	if err != nil {
 		panic("failed to create logger, err: " + err.Error())
 	}
 	defer logger.Sync()
+	zap.ReplaceGlobals(logger)
 
 	// Setup environment variables using .env file
 	if err = godotenv.Load(); err != nil {
