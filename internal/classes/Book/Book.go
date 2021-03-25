@@ -2,9 +2,7 @@ package book
 
 import (
 	"database/sql"
-	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/env"
 	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/hasher"
-	_ "github.com/lib/pq"
 	"log"
 	"strconv"
 )
@@ -24,13 +22,8 @@ type Series struct {
 	Number	int32	`json:"number"`
 }
 
-func GetAll() []*Book {
+func GetAll(db *sql.DB) []*Book {
 	books := make([]*Book, 0)
-	db, err := sql.Open("postgres", env.GetEnvVar("DB_CONNECTION_STRING"))
-	if err != nil {
-		log.Println(err)
-		return books
-	}
 
 	rows, err := db.Query("SELECT id, author, title, genre, age, cover_url, series, series_book_num FROM books")
 	if err != nil {
@@ -62,13 +55,7 @@ func GetAll() []*Book {
 	return books
 }
 
-func GetWithHash(hashedId string) *Book {
-	db, err := sql.Open("postgres", env.GetEnvVar("DB_CONNECTION_STRING"))
-	if err != nil {
-		log.Println(err)
-		return nil
-	}
-
+func GetWithHash(db *sql.DB, hashedId string) *Book {
 	id := hasher.GetFromHashID(hashedId)
 	row := db.QueryRow("SELECT id, author, title, genre, age, cover_url, series, series_book_num FROM books WHERE id = $1", id)
 	var book Book
@@ -91,13 +78,7 @@ func GetWithHash(hashedId string) *Book {
 	return &book
 }
 
-func Get(id uint) *Book {
-	db, err := sql.Open("postgres", env.GetEnvVar("DB_CONNECTION_STRING"))
-	if err != nil {
-		log.Println(err)
-		return nil
-	}
-
+func Get(db *sql.DB, id uint) *Book {
 	row := db.QueryRow("SELECT id, author, title, genre, age, cover_url, series, series_book_num FROM books WHERE id = $1", id)
 	var book Book
 	var series sql.NullString
@@ -120,17 +101,12 @@ func Get(id uint) *Book {
 	return &book
 }
 
-func New(book Book) error {
-	db, err := sql.Open("postgres", env.GetEnvVar("DB_CONNECTION_STRING"))
-	if err != nil {
-		return err
-	}
-
+func New(db *sql.DB,book Book) error {
 	if book.Series != nil {
-		_, err = db.Exec("INSERT INTO books (author, title, genre, age, cover_url, series, series_book_num) VALUES ($1, $2, $3, $4, $5, $6, $7)", book.Author, book.Title, book.Genre, book.Age, book.CoverUrl, book.Series.Name, book.Series.Number)
+		_, err := db.Exec("INSERT INTO books (author, title, genre, age, cover_url, series, series_book_num) VALUES ($1, $2, $3, $4, $5, $6, $7)", book.Author, book.Title, book.Genre, book.Age, book.CoverUrl, book.Series.Name, book.Series.Number)
 		return err
 	}
 
-	_, err = db.Exec("INSERT INTO books (author, title, genre, age, cover_url) VALUES ($1, $2, $3, $4, $5)", book.Author, book.Title, book.Genre, book.Age, book.CoverUrl)
+	_, err := db.Exec("INSERT INTO books (author, title, genre, age, cover_url) VALUES ($1, $2, $3, $4, $5)", book.Author, book.Title, book.Genre, book.Age, book.CoverUrl)
 	return err
 }

@@ -2,10 +2,8 @@ package review
 
 import (
 	"database/sql"
-	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/env"
 	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/hasher"
 	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/classes/Book"
-	_ "github.com/lib/pq"
 	"log"
 	"strconv"
 )
@@ -17,13 +15,8 @@ type Review struct {
 	Text	string		`json:"text"`
 }
 
-func GetAll() []*Review {
+func GetAll(db *sql.DB) []*Review {
 	reviews := make([]*Review, 0)
-	db, err := sql.Open("postgres", env.GetEnvVar("DB_CONNECTION_STRING"))
-	if err != nil {
-		log.Println(err)
-		return reviews
-	}
 
 	rows, err := db.Query("SELECT id, book_id, rating, review FROM reviews")
 	if err != nil {
@@ -41,7 +34,7 @@ func GetAll() []*Review {
 
 		id, _ := strconv.Atoi(review.Id)
 		review.Id = hasher.HashID(id)
-		review.Book = book.Get(bookId)
+		review.Book = book.Get(db, bookId)
 
 		reviews = append(reviews, &review)
 	}
@@ -49,13 +42,7 @@ func GetAll() []*Review {
 	return reviews
 }
 
-func GetWithHash(hashedId string) *Review {
-	db, err := sql.Open("postgres", env.GetEnvVar("DB_CONNECTION_STRING"))
-	if err != nil {
-		log.Println(err)
-		return nil
-	}
-
+func GetWithHash(db *sql.DB, hashedId string) *Review {
 	id := hasher.GetFromHashID(hashedId)
 	row := db.QueryRow("SELECT id, book_id, rating, review FROM reviews WHERE id = $1", id)
 	var review Review
@@ -66,7 +53,7 @@ func GetWithHash(hashedId string) *Review {
 	}
 
 	review.Id = hashedId
-	review.Book = book.Get(bookId)
+	review.Book = book.Get(db, bookId)
 
 	return &review
 }
