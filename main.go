@@ -27,14 +27,14 @@ func init() {
 	// Setup environment variables using .env file
 	if err = godotenv.Load(); err != nil {
 		logger.Fatal("failed loading env file",
-			zap.String("error", err.Error()),
+			zap.NamedError("error", err),
 		)
 	}
 
 	// Open connection to the database
 	if db, err = sql.Open("postgres", os.Getenv("DB_CONNECTION_STRING")); err != nil {
 		logger.Fatal("failed connecting to database",
-			zap.String("error", err.Error()),
+			zap.NamedError("error", err),
 		)
 	}
 
@@ -55,7 +55,7 @@ func main() {
 
 	if err := http.ListenAndServe(os.Getenv("HTTP_HOSTNAME"), r); err != nil {
 		logger.Fatal("whilst listening an error occurred",
-			zap.String("error", err.Error()),
+			zap.NamedError("error", err),
 		)
 	}
 }
