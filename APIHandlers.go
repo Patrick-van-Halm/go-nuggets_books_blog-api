@@ -24,18 +24,18 @@ func booksHandler(w http.ResponseWriter, r *http.Request) {
 func booksHandlerPost(w http.ResponseWriter, body io.ReadCloser) {
 	var data book.Book
 	if err := parseJsonFromBody(body, &data); err != nil {
-		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst parsing json", zap.NamedError("error", err))
+		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst parsing json", zap.Error(err))
 		return
 	}
 
 	if err := book.New(db, data); err != nil {
-		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst creating a new book", zap.NamedError("error", err))
+		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst creating a new book", zap.Error(err))
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
 	if _, err := w.Write([]byte("Created")); err != nil {
-		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst writing a response", zap.NamedError("error", err))
+		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst writing a response", zap.Error(err))
 	}
 }
 
@@ -68,14 +68,14 @@ func handleHttpError(w http.ResponseWriter, code int, message string, fields ...
 func writeJsonResponse(w http.ResponseWriter, json []byte) {
 	w.Header().Set("Content-Type", "application/json")
 	if _, err := w.Write(json); err != nil {
-		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst writing a response", zap.NamedError("error", err))
+		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst writing a response", zap.Error(err))
 	}
 }
 
 func handleJsonResponse(w http.ResponseWriter, value interface{}) {
 	b, err := json.Marshal(value)
 	if err != nil {
-		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst encoding json", zap.NamedError("error", err))
+		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst encoding json", zap.Error(err))
 		return
 	}
 
