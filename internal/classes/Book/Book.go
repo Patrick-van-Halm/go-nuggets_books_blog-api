@@ -2,111 +2,127 @@ package book
 
 import (
 	"database/sql"
-	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/hasher"
-	"log"
-	"strconv"
+	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/classes/Genre"
+	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/classes/Series"
+	series_book "github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/classes/SeriesBook"
+	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/classes/Author"
+	"github.com/matoous/go-nanoid/v2"
 )
 
 type Book struct {
-	Id			string	`json:"id"`
-	Author		string	`json:"author"`
-	Title		string	`json:"title"`
-	Genre 		string	`json:"genre"`
-	Age			int		`json:"min-age"`
-	CoverUrl	string	`json:"cover-url"`
-	Series		*Series	`json:"series"`
+	Id			string			`json:"id"`
+	Author		*author.Author	`json:"Author"`
+	Title		string			`json:"title"`
+	Genre 		*genre.Genre	`json:"genre"`
+	Age			int				`json:"min-age"`
+	CoverUrl	string			`json:"cover-url"`
+	Series		*series.Series	`json:"series"`
 }
 
-type Series struct {
-	Name	string	`json:"name"`
-	Number	int32	`json:"number"`
-}
-
-func GetAll(db *sql.DB) []*Book {
+func GetAll(db *sql.DB) ([]*Book, error) {
 	books := make([]*Book, 0)
 
-	rows, err := db.Query("SELECT id, author, title, genre, age, cover_url, series, series_book_num FROM books")
+	rows, err := db.Query("SELECT id, author_id, genre_id, title, age, cover_url FROM books")
 	if err != nil {
-		log.Println(err)
-		return books
+		return nil, err
 	}
 
 	for rows.Next() {
 		var book Book
-		var series sql.NullString
-		var seriesNum sql.NullInt32
-		if err := rows.Scan(&book.Id, &book.Author, &book.Title, &book.Genre, &book.Age, &book.CoverUrl, &series, &seriesNum); err != nil {
-			log.Println(err)
-			return books
-		}
-		id, _ := strconv.Atoi(book.Id)
-		book.Id = hasher.HashID(id)
+		var authorId sql.NullString
+		var genreId sql.NullString
 
-		if series.Valid {
-			book.Series = &Series{
-				Name:   series.String,
-				Number: seriesNum.Int32,
+		// Get book data
+		if err := rows.Scan(&book.Id, &authorId, &genreId, &book.Title, &book.Age, &book.CoverUrl); err != nil {
+			return nil, err
+		}
+
+		// Get Author if set
+		if authorId.Valid {
+			author, err := author.Get(db, authorId.String)
+			if err != nil {
+				return nil, err
 			}
+			book.Author = author
+		}
+
+		// Get series if set
+		seriesBook, err := series_book.GetWithBookId(db, book.Id)
+		if err == nil {
+			series, err := series.Get(db, seriesBook.SeriesId)
+			if err != nil {
+				return nil, err
+			}
+			book.Series = series
+		}
+
+		// Get genre if set
+		if genreId.Valid {
+			genre, err := genre.Get(db, genreId.String)
+			if err != nil {
+				return nil, err
+			}
+			book.Genre = genre
 		}
 
 		books = append(books, &book)
 	}
 
-	return books
+	return books, nil
 }
 
-func GetWithHash(db *sql.DB, hashedId string) *Book {
-	id := hasher.GetFromHashID(hashedId)
-	row := db.QueryRow("SELECT id, author, title, genre, age, cover_url, series, series_book_num FROM books WHERE id = $1", id)
+func Get(db *sql.DB, id string) (*Book, error) {
+	row := db.QueryRow("SELECT id, author_id, genre_id, title, age, cover_url FROM books WHERE id = $1", id)
+
 	var book Book
-	var series sql.NullString
-	var seriesNum sql.NullInt32
-	if err := row.Scan(&book.Id, &book.Author, &book.Title, &book.Genre, &book.Age, &book.CoverUrl, &series, &seriesNum); err != nil {
-		log.Println(err)
-		return nil
+	var authorId sql.NullString
+	var genreId sql.NullString
+
+	// Get book data
+	if err := row.Scan(&book.Id, &authorId, &genreId, &book.Title, &book.Age, &book.CoverUrl); err != nil {
+		return nil, err
 	}
 
-	if series.Valid {
-		book.Series = &Series{
-			Name:   series.String,
-			Number: seriesNum.Int32,
+	// Get Author if set
+	if authorId.Valid {
+		author, err := author.Get(db, authorId.String)
+		if err != nil {
+			return nil, err
 		}
+		book.Author = author
 	}
 
-	book.Id = hashedId
+	// Get series if set
+	seriesBook, err := series_book.GetWithBookId(db, book.Id)
+	if err == nil {
+		series, err := series.Get(db, seriesBook.SeriesId)
+		if err != nil {
+			return nil, err
+		}
+		book.Series = series
+	}
 
-	return &book
+	// Get genre if set
+	if genreId.Valid {
+		genre, err := genre.Get(db, genreId.String)
+		if err != nil {
+			return nil, err
+		}
+		book.Genre = genre
+	}
+
+	return &book, nil
 }
 
-func Get(db *sql.DB, id uint) *Book {
-	row := db.QueryRow("SELECT id, author, title, genre, age, cover_url, series, series_book_num FROM books WHERE id = $1", id)
-	var book Book
-	var series sql.NullString
-	var seriesNum sql.NullInt32
-	if err := row.Scan(&book.Id, &book.Author, &book.Title, &book.Genre, &book.Age, &book.CoverUrl, &series, &seriesNum); err != nil {
-		log.Println(err)
-		return nil
-	}
-
-	hashedId, _ := strconv.Atoi(book.Id)
-	book.Id = hasher.HashID(hashedId)
-
-	if series.Valid {
-		book.Series = &Series{
-			Name:   series.String,
-			Number: seriesNum.Int32,
-		}
-	}
-
-	return &book
-}
-
-func New(db *sql.DB,book Book) error {
-	if book.Series != nil {
-		_, err := db.Exec("INSERT INTO books (author, title, genre, age, cover_url, series, series_book_num) VALUES ($1, $2, $3, $4, $5, $6, $7)", book.Author, book.Title, book.Genre, book.Age, book.CoverUrl, book.Series.Name, book.Series.Number)
+func New(db *sql.DB, book *Book) error {
+	id, err := gonanoid.New(21)
+	if err != nil {
 		return err
 	}
 
-	_, err := db.Exec("INSERT INTO books (author, title, genre, age, cover_url) VALUES ($1, $2, $3, $4, $5)", book.Author, book.Title, book.Genre, book.Age, book.CoverUrl)
+	_, err = db.Exec("INSERT INTO books (id, author_id, genre_id, title, age, cover_url) VALUES ($1, $2, $3, $4, $5, $6)", id, book.Author, book.Title, book.Genre, book.Age, book.CoverUrl)
+	if err == nil {
+		book.Id = id
+	}
 	return err
 }

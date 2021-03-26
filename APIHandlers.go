@@ -28,8 +28,11 @@ func booksHandlerPost(w http.ResponseWriter, body io.ReadCloser) {
 		return
 	}
 
-	if err := book.New(db, data); err != nil {
-		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst creating a new book", zap.Error(err))
+	if err := book.New(db, &data); err != nil {
+		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst creating a new book",
+			zap.Error(err),
+			zap.Any("book", &data),
+		)
 		return
 	}
 
@@ -40,22 +43,52 @@ func booksHandlerPost(w http.ResponseWriter, body io.ReadCloser) {
 }
 
 func booksHandlerGet(w http.ResponseWriter) {
-	handleJsonResponse(w, book.GetAll(db))
+	books, err := book.GetAll(db)
+	if err != nil {
+		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst getting all books", zap.Error(err))
+		return
+	}
+
+	handleJsonResponse(w, books)
 }
 
 func bookByIdHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	handleJsonResponse(w, book.GetWithHash(db, vars["id"]))
+	id := vars["id"]
+	book, err := book.Get(db, id)
+	if err != nil {
+		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst getting specific book",
+			zap.Error(err),
+			zap.String("id", id),
+		)
+		return
+	}
+
+	handleJsonResponse(w, book)
 }
 
 func reviewsHandler(w http.ResponseWriter, _ *http.Request) {
-	handleJsonResponse(w, review.GetAll(db))
+	reviews, err := review.GetAll(db)
+	if err != nil {
+		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst getting all reviews", zap.Error(err))
+		return
+	}
+
+	handleJsonResponse(w, reviews)
 }
 
 func reviewByIdHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-
-	handleJsonResponse(w, review.GetWithHash(db, vars["id"]))
+	id := vars["id"]
+	review, err := review.Get(db, id)
+	if err != nil {
+		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst getting specific review",
+			zap.Error(err),
+			zap.String("id", id),
+		)
+		return
+	}
+	handleJsonResponse(w, review)
 }
 
 func handleHttpError(w http.ResponseWriter, code int, message string, fields ...zap.Field) {

@@ -32,9 +32,11 @@ func init() {
 	}
 
 	// Open connection to the database
-	if db, err = sql.Open("postgres", os.Getenv("DB_CONNECTION_STRING")); err != nil {
+	connString := getEnv("DB_CONNECTION_STRING")
+	if db, err = sql.Open("postgres", connString); err != nil {
 		logger.Fatal("failed connecting to database",
 			zap.Error(err),
+			zap.String("connection_string", connString),
 		)
 	}
 
@@ -45,6 +47,8 @@ func init() {
 }
 
 func main() {
+	logger = zap.L()
+
 	r := mux.NewRouter()
 	r.HandleFunc("/api/books", booksHandler).Methods(http.MethodGet, http.MethodPost)
 	r.HandleFunc("/api/books/{id}", bookByIdHandler).Methods(http.MethodGet)
@@ -53,9 +57,23 @@ func main() {
 	r.Use(mux.CORSMethodMiddleware(r))
 	r.Use(authenticator.AuthorizationMiddleware)
 
-	if err := http.ListenAndServe(os.Getenv("HTTP_HOSTNAME"), r); err != nil {
-		logger.Fatal("whilst listening an error occurred",
+	// Start webserver
+	hostname := getEnv("HTTP_HOSTNAME")
+	err := http.ListenAndServe(hostname, r)
+	if err != nil {
+		logger.Fatal("failed to start listening",
 			zap.Error(err),
+			zap.String("hostname", hostname),
 		)
 	}
+}
+
+func getEnv(key string) string {
+	value, ok := os.LookupEnv(key)
+	if !ok {
+		logger.Fatal("environment variable not set",
+			zap.String("key", key),
+		)
+	}
+	return value
 }

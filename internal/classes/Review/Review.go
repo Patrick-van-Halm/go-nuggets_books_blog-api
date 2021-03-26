@@ -2,10 +2,7 @@ package review
 
 import (
 	"database/sql"
-	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/hasher"
 	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/classes/Book"
-	"log"
-	"strconv"
 )
 
 type Review struct {
@@ -15,45 +12,44 @@ type Review struct {
 	Text	string		`json:"text"`
 }
 
-func GetAll(db *sql.DB) []*Review {
+func GetAll(db *sql.DB) ([]*Review, error) {
 	reviews := make([]*Review, 0)
 
 	rows, err := db.Query("SELECT id, book_id, rating, review FROM reviews")
 	if err != nil {
-		log.Println(err)
-		return reviews
+		return nil, err
 	}
 
 	for rows.Next() {
 		var review Review
-		var bookId uint
+		var bookId string
 		if err := rows.Scan(&review.Id, &bookId, &review.Rating, &review.Text); err != nil {
-			log.Println(err)
-			return reviews
+			return nil, err
 		}
-
-		id, _ := strconv.Atoi(review.Id)
-		review.Id = hasher.HashID(id)
-		review.Book = book.Get(db, bookId)
+		review.Book, err = book.Get(db, bookId)
+		if err != nil {
+			return nil, err
+		}
 
 		reviews = append(reviews, &review)
 	}
 
-	return reviews
+	return reviews, nil
 }
 
-func GetWithHash(db *sql.DB, hashedId string) *Review {
-	id := hasher.GetFromHashID(hashedId)
+func Get(db *sql.DB, id string) (*Review, error) {
 	row := db.QueryRow("SELECT id, book_id, rating, review FROM reviews WHERE id = $1", id)
 	var review Review
-	var bookId uint
+	var bookId string
 	if err := row.Scan(&review.Id, &bookId, &review.Rating, &review.Text); err != nil {
-		log.Println(err)
-		return nil
+		return nil, err
 	}
 
-	review.Id = hashedId
-	review.Book = book.Get(db, bookId)
+	book, err := book.Get(db, bookId)
+	if err != nil {
+		return nil, err
+	}
 
-	return &review
+	review.Book = book
+	return &review, nil
 }
