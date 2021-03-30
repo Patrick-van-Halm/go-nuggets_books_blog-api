@@ -2,8 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/classes/Book"
-	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/classes/Review"
+	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/classes"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"io"
@@ -22,13 +21,13 @@ func booksHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func booksHandlerPost(w http.ResponseWriter, body io.ReadCloser) {
-	var data book.Book
+	var data classes.Book
 	if err := parseJsonFromBody(body, &data); err != nil {
 		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst parsing json", zap.Error(err))
 		return
 	}
 
-	if err := book.New(db, &data); err != nil {
+	if err := data.New(db); err != nil {
 		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst creating a new book",
 			zap.Error(err),
 			zap.Any("book", &data),
@@ -43,7 +42,7 @@ func booksHandlerPost(w http.ResponseWriter, body io.ReadCloser) {
 }
 
 func booksHandlerGet(w http.ResponseWriter) {
-	books, err := book.GetAll(db)
+	books, err := classes.GetAllBooks(db)
 	if err != nil {
 		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst getting all books", zap.Error(err))
 		return
@@ -55,7 +54,8 @@ func booksHandlerGet(w http.ResponseWriter) {
 func bookByIdHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	book, err := book.Get(db, id)
+	book := classes.Book{Id: id}
+	err := book.Get(db)
 	if err != nil {
 		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst getting specific book",
 			zap.Error(err),
@@ -68,7 +68,7 @@ func bookByIdHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func reviewsHandler(w http.ResponseWriter, _ *http.Request) {
-	reviews, err := review.GetAll(db)
+	reviews, err := classes.GetAllReviews(db)
 	if err != nil {
 		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst getting all reviews", zap.Error(err))
 		return
@@ -80,7 +80,8 @@ func reviewsHandler(w http.ResponseWriter, _ *http.Request) {
 func reviewByIdHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	review, err := review.Get(db, id)
+	review := classes.Review{Id: id}
+	err := review.Get(db)
 	if err != nil {
 		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst getting specific review",
 			zap.Error(err),
