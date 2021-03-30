@@ -54,6 +54,7 @@ func main() {
 	r := mux.NewRouter()
 	handleBooksRoutes(r)
 	handleReviewsRoutes(r)
+	handleAuthorsRoutes(r)
 
 	r.Use(mux.CORSMethodMiddleware(r))
 	r.Use(authenticator.AuthorizationMiddleware)
