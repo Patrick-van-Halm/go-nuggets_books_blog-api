@@ -4,6 +4,7 @@ import (
 	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/classes"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
+	"io"
 	"net/http"
 )
 
@@ -46,4 +47,8 @@ func reviewByIdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	handleJsonResponse(w, review)
+}
+
+func reviewsHandlerPost(w http.ResponseWriter, body io.ReadCloser){
+	// TODO
 }
