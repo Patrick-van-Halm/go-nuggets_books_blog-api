@@ -2,11 +2,13 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/authenticator"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -50,10 +52,9 @@ func main() {
 	logger = zap.L()
 
 	r := mux.NewRouter()
-	r.HandleFunc("/api/books", booksHandler).Methods(http.MethodGet, http.MethodPost)
-	r.HandleFunc("/api/books/{id}", bookByIdHandler).Methods(http.MethodGet)
-	r.HandleFunc("/api/reviews", reviewsHandler).Methods(http.MethodGet, http.MethodPost)
-	r.HandleFunc("/api/reviews/{id}", reviewByIdHandler).Methods(http.MethodGet)
+	handleBooksRoutes(r)
+	handleReviewsRoutes(r)
+
 	r.Use(mux.CORSMethodMiddleware(r))
 	r.Use(authenticator.AuthorizationMiddleware)
 
@@ -76,4 +77,34 @@ func getEnv(key string) string {
 		)
 	}
 	return value
+}
+
+func handleHttpError(w http.ResponseWriter, code int, message string, fields ...zap.Field) {
+	logger.Error(message,
+		fields...
+	)
+	http.Error(w, http.StatusText(code), code)
+}
+
+func writeJsonResponse(w http.ResponseWriter, json []byte) {
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write(json); err != nil {
+		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst writing a response", zap.Error(err))
+	}
+}
+
+func handleJsonResponse(w http.ResponseWriter, value interface{}) {
+	b, err := json.Marshal(value)
+	if err != nil {
+		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst encoding json", zap.Error(err))
+		return
+	}
+
+	writeJsonResponse(w, b)
+}
+
+func parseJsonFromBody(body io.ReadCloser, data interface{}) error {
+	decoder := json.NewDecoder(body)
+	defer body.Close()
+	return decoder.Decode(&data)
 }
