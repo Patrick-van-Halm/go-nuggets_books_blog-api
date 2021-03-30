@@ -3,6 +3,7 @@ package classes
 import (
 	"database/sql"
 	"errors"
+	"github.com/matoous/go-nanoid/v2"
 )
 
 type Author struct {
