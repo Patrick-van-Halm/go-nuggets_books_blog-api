@@ -1,6 +1,7 @@
-package main
+package controllers
 
 import (
+	"database/sql"
 	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/dto"
 	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/models"
 	"github.com/gorilla/mux"
@@ -8,23 +9,20 @@ import (
 	"net/http"
 )
 
-func handleBooksGetRoutes(get *mux.Router) {
-	get.HandleFunc("", booksHandlerGetAll)
-	get.HandleFunc("/{id}", bookGetHandler)
+type Book struct {db *sql.DB}
+
+func (b *Book) setDatabase(db *sql.DB) {
+	b.db = db
 }
 
-func handleBooksPostRoutes(post *mux.Router) {
-	post.HandleFunc("", booksPostHandler)
-}
-
-func booksPostHandler(w http.ResponseWriter, r *http.Request) {
+func (b *Book) create(w http.ResponseWriter, r *http.Request) {
 	bookCreate := dto.CreateBookDTO{}
 	if err := parseJsonFromBody(r.Body, &bookCreate); err != nil {
 		handleHttpError(w, http.StatusInternalServerError, "error while parsing json", zap.Error(err))
 		return
 	}
 
-	if err := bookCreate.Create(db); err != nil {
+	if err := bookCreate.Create(b.db); err != nil {
 		handleHttpError(w, http.StatusInternalServerError, "error while creating row",
 			zap.Error(err),
 			zap.Any("book", &bookCreate),
@@ -37,17 +35,16 @@ func booksPostHandler(w http.ResponseWriter, r *http.Request) {
 		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst writing a response", zap.Error(err))
 	}
 }
-
-func booksHandlerGetAll(w http.ResponseWriter, _ *http.Request) {
-	books, err := models.GetAllBooks(db)
+func (b *Book) readAll(w http.ResponseWriter, r *http.Request) {
+	books, err := models.GetAllBooks(b.db)
 	if err != nil {
 		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst getting all books", zap.Error(err))
 		return
 	}
 	data := make([]*dto.BookDTO, 0)
-	for _, b := range books {
+	for _, book := range books {
 		d := dto.BookDTO{}
-		err := d.Get(b, db)
+		err := d.Get(book, b.db)
 		if err != nil {
 			handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst getting book DTO",
 				zap.Error(err),
@@ -60,12 +57,11 @@ func booksHandlerGetAll(w http.ResponseWriter, _ *http.Request) {
 
 	handleJsonResponse(w, data)
 }
-
-func bookGetHandler(w http.ResponseWriter, r *http.Request) {
+func (b *Book) read(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 	book := models.Book{Id: id}
-	err := book.Get(db)
+	err := book.Get(b.db)
 	if err != nil {
 		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst getting specific book",
 			zap.Error(err),
@@ -75,7 +71,7 @@ func bookGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := dto.BookDTO{}
-	err = data.Get(&book, db)
+	err = data.Get(&book, b.db)
 	if err != nil {
 		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst getting book DTO",
 			zap.Error(err),
@@ -84,4 +80,10 @@ func bookGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	handleJsonResponse(w, data)
+}
+func (b *Book) update(w http.ResponseWriter, r *http.Request) {
+
+}
+func (b *Book) delete(w http.ResponseWriter, r *http.Request) {
+
 }

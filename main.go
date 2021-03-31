@@ -2,14 +2,11 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
-	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/authenticator"
-	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/models"
+	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/controllers"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
-	"io"
 	"net/http"
 	"os"
 	"time"
@@ -57,32 +54,43 @@ func main() {
 	r := mux.NewRouter()
 
 	// Create GET router
-	get := r.PathPrefix("/api").Methods(http.MethodGet).Subrouter()
-
-	// Create POST router (only accessible through authorization)
-	post := r.PathPrefix("/api").Methods(http.MethodPost).Subrouter()
-	post.Use(authenticator.AuthorizationMiddleware)
+	router := r.PathPrefix("/api").Subrouter()
 
 	// Handle routes
-	route := "/books"
-	handleBooksGetRoutes(get.PathPrefix(route).Subrouter())
-	handleBooksPostRoutes(post.PathPrefix(route).Subrouter())
+	booksController := controllers.Controller{
+		Endpoints: &controllers.Book{},
+		Prefix:    "/books",
+		Database:  db,
+	}
+	booksController.MapEndpoints(router)
 
-	route = "/genres"
-	handleGenresGetRoutes(get.PathPrefix(route).Subrouter())
-	handleGenresPostRoutes(post.PathPrefix(route).Subrouter())
+	authorsController := controllers.Controller{
+		Endpoints: &controllers.Author{},
+		Prefix:    "/authors",
+		Database:  db,
+	}
+	authorsController.MapEndpoints(router)
 
-	route = "/reviews"
-	handleReviewsGetRoutes(get.PathPrefix(route).Subrouter())
-	handleReviewsPostRoutes(post.PathPrefix(route).Subrouter())
+	genresController := controllers.Controller{
+		Endpoints: &controllers.Genre{},
+		Prefix:    "/genres",
+		Database:  db,
+	}
+	genresController.MapEndpoints(router)
 
-	route = "/authors"
-	handleAuthorsGetRoutes(get.PathPrefix(route).Subrouter())
-	handleAuthorsPostRoutes(post.PathPrefix(route).Subrouter())
+	reviewsController := controllers.Controller{
+		Endpoints: &controllers.Review{},
+		Prefix:    "/reviews",
+		Database:  db,
+	}
+	reviewsController.MapEndpoints(router)
 
-	route = "/series"
-	handleSeriesGetRoutes(get.PathPrefix(route).Subrouter())
-	handleSeriesPostRoutes(post.PathPrefix(route).Subrouter())
+	seriesController := controllers.Controller{
+		Endpoints: &controllers.Series{},
+		Prefix:    "/series",
+		Database:  db,
+	}
+	seriesController.MapEndpoints(router)
 
 	// Use CORS
 	r.Use(mux.CORSMethodMiddleware(r))
@@ -108,52 +116,3 @@ func getEnv(key string) string {
 	return value
 }
 
-func handleHttpError(w http.ResponseWriter, code int, message string, fields ...zap.Field) {
-	logger.Error(message,
-		fields...
-	)
-	http.Error(w, http.StatusText(code), code)
-}
-
-func writeJsonResponse(w http.ResponseWriter, json []byte) {
-	w.Header().Set("Content-Type", "application/json")
-	if _, err := w.Write(json); err != nil {
-		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst writing a response", zap.Error(err))
-	}
-}
-
-func handleJsonResponse(w http.ResponseWriter, value interface{}) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst encoding json", zap.Error(err))
-		return
-	}
-
-	writeJsonResponse(w, b)
-}
-
-func parseJsonFromBody(body io.ReadCloser, data interface{}) error {
-	decoder := json.NewDecoder(body)
-	defer body.Close()
-	return decoder.Decode(&data)
-}
-
-func handleCreate(data models.Model, w http.ResponseWriter, r *http.Request) {
-	if err := parseJsonFromBody(r.Body, &data); err != nil {
-		handleHttpError(w, http.StatusInternalServerError, "error while parsing json", zap.Error(err))
-		return
-	}
-
-	if err := data.New(db); err != nil {
-		handleHttpError(w, http.StatusInternalServerError, "error while creating row",
-			zap.Error(err),
-			zap.Any(data.TypeName(), &data),
-		)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	if _, err := w.Write([]byte("Created")); err != nil {
-		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst writing a response", zap.Error(err))
-	}
-}
