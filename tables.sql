@@ -40,5 +40,6 @@ create table reviews (
 	id varchar(21) not null primary key,
 	book_id varchar(21) not null references books(id) ON DELETE CASCADE ON UPDATE CASCADE,
 	rating smallint not null,
-	review text not null
+	review text not null,
+	created_at timestamp not null default (now() at time zone 'utc')
 );

@@ -1,31 +1,27 @@
 package main
 
 import (
-	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/classes"
+	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/models"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
-	"io"
 	"net/http"
 )
 
-func handleReviewsRoutes(r *mux.Router){
-	r.HandleFunc("/api/reviews", reviewsHandler).Methods(http.MethodGet, http.MethodPost)
-	r.HandleFunc("/api/reviews/{id}", reviewByIdHandler).Methods(http.MethodGet)
+func handleReviewsGetRoutes(get *mux.Router) {
+	get.HandleFunc("", reviewsGetAllHandler)
+	get.HandleFunc("/{id}", reviewsGetHandler)
 }
 
-func reviewsHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		reviewsHandlerGet(w)
-		break
-	case http.MethodPost:
-		reviewsHandlerPost(w, r.Body)
-		break
-	}
+func handleReviewsPostRoutes(post *mux.Router) {
+	post.HandleFunc("", reviewsPostHandler)
 }
 
-func reviewsHandlerGet(w http.ResponseWriter) {
-	reviews, err := classes.GetAllReviews(db)
+func reviewsPostHandler(w http.ResponseWriter, r *http.Request) {
+	handleCreate(&models.Review{}, w, r)
+}
+
+func reviewsGetAllHandler(w http.ResponseWriter, _ *http.Request) {
+	reviews, err := models.GetAllReviews(db)
 	if err != nil {
 		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst getting all reviews", zap.Error(err))
 		return
@@ -34,10 +30,10 @@ func reviewsHandlerGet(w http.ResponseWriter) {
 	handleJsonResponse(w, reviews)
 }
 
-func reviewByIdHandler(w http.ResponseWriter, r *http.Request) {
+func reviewsGetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	review := classes.Review{Id: id}
+	review := models.Review{Id: id}
 	err := review.Get(db)
 	if err != nil {
 		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst getting specific review",
@@ -47,8 +43,4 @@ func reviewByIdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	handleJsonResponse(w, review)
-}
-
-func reviewsHandlerPost(w http.ResponseWriter, body io.ReadCloser){
-	// TODO
 }

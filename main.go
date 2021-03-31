@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/authenticator"
+	"github.com/Patrick-van-Halm/nuggets_books_blog-api/internal/models"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -49,15 +50,42 @@ func init() {
 }
 
 func main() {
+	// Get logger
 	logger = zap.L()
 
+	// Create default router
 	r := mux.NewRouter()
-	handleBooksRoutes(r)
-	handleReviewsRoutes(r)
-	handleAuthorsRoutes(r)
 
+	// Create GET router
+	get := r.PathPrefix("/api").Methods(http.MethodGet).Subrouter()
+
+	// Create POST router (only accessible through authorization)
+	post := r.PathPrefix("/api").Methods(http.MethodPost).Subrouter()
+	post.Use(authenticator.AuthorizationMiddleware)
+
+	// Handle routes
+	route := "/books"
+	handleBooksGetRoutes(get.PathPrefix(route).Subrouter())
+	handleBooksPostRoutes(post.PathPrefix(route).Subrouter())
+
+	route = "/genres"
+	handleGenresGetRoutes(get.PathPrefix(route).Subrouter())
+	handleGenresPostRoutes(post.PathPrefix(route).Subrouter())
+
+	route = "/reviews"
+	handleReviewsGetRoutes(get.PathPrefix(route).Subrouter())
+	handleReviewsPostRoutes(post.PathPrefix(route).Subrouter())
+
+	route = "/authors"
+	handleAuthorsGetRoutes(get.PathPrefix(route).Subrouter())
+	handleAuthorsPostRoutes(post.PathPrefix(route).Subrouter())
+
+	route = "/series"
+	handleSeriesGetRoutes(get.PathPrefix(route).Subrouter())
+	handleSeriesPostRoutes(post.PathPrefix(route).Subrouter())
+
+	// Use CORS
 	r.Use(mux.CORSMethodMiddleware(r))
-	r.Use(authenticator.AuthorizationMiddleware)
 
 	// Start webserver
 	hostname := getEnv("HTTP_HOSTNAME")
@@ -108,4 +136,24 @@ func parseJsonFromBody(body io.ReadCloser, data interface{}) error {
 	decoder := json.NewDecoder(body)
 	defer body.Close()
 	return decoder.Decode(&data)
+}
+
+func handleCreate(data models.Model, w http.ResponseWriter, r *http.Request) {
+	if err := parseJsonFromBody(r.Body, &data); err != nil {
+		handleHttpError(w, http.StatusInternalServerError, "error while parsing json", zap.Error(err))
+		return
+	}
+
+	if err := data.New(db); err != nil {
+		handleHttpError(w, http.StatusInternalServerError, "error while creating row",
+			zap.Error(err),
+			zap.Any(data.TypeName(), &data),
+		)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	if _, err := w.Write([]byte("Created")); err != nil {
+		handleHttpError(w, http.StatusInternalServerError, "an error occurred whilst writing a response", zap.Error(err))
+	}
 }

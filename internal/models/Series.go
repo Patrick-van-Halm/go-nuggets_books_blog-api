@@ -1,8 +1,8 @@
-package classes
+package models
 
 import (
 	"database/sql"
-	gonanoid "github.com/matoous/go-nanoid/v2"
+	"github.com/matoous/go-nanoid/v2"
 )
 
 type Series struct {
@@ -31,4 +31,29 @@ func (s *Series) New(db *sql.DB) error {
 
 	s.Id = id
 	return nil
+}
+
+func (s *Series) TypeName() string {
+	return "series"
+}
+
+func GetAllSeries(db *sql.DB) ([]*Series, error) {
+	series := make([]*Series, 0)
+
+	rows, err := db.Query(`SELECT id, name FROM series`)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var s Series
+		err := rows.Scan(&s.Id, &s.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		series = append(series, &s)
+	}
+
+	return series, nil
 }

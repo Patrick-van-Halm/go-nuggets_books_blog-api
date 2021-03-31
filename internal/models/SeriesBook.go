@@ -1,4 +1,4 @@
-package classes
+package models
 
 import (
 	"database/sql"
@@ -8,11 +8,11 @@ import (
 type SeriesBook struct {
 	SeriesId	string	`json:"series_id"`
 	BookId		string	`json:"book_id"`
-	Number		int	`json:"number"`
+	Number		uint8	`json:"number"`
 }
 
 func (sb *SeriesBook) Get(db *sql.DB) error {
-	if sb.SeriesId == "" || sb.Number == 0 || sb.BookId == "" {
+	if (sb.SeriesId == "" || sb.Number == 0) && sb.BookId == "" {
 		return errors.New("you need at least a book Id or a series Id and the book number")
 	}
 
@@ -51,4 +51,8 @@ func (sb *SeriesBook) New(db *sql.DB) error {
 	}
 
 	return nil
+}
+
+func (sb *SeriesBook) TypeName() string {
+	return "series_book"
 }

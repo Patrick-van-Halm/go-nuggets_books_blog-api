@@ -1,4 +1,4 @@
-package classes
+package models
 
 import (
 	"database/sql"
@@ -59,4 +59,8 @@ func GetAllAuthors(db *sql.DB) ([]*Author, error) {
 	}
 
 	return authors, nil
+}
+
+func (a *Author) TypeName() string {
+	return "author"
 }

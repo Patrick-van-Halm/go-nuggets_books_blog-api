@@ -1,7 +1,9 @@
-package classes
+package models
 
 import (
 	"database/sql"
+	"errors"
+	"github.com/matoous/go-nanoid/v2"
 )
 
 type Review struct {
@@ -53,4 +55,27 @@ func (r *Review) Get(db *sql.DB) error {
 
 	review.Book = &book
 	return nil
+}
+
+func (r *Review) New(db *sql.DB) error {
+	if r.Book == nil || r.Text == "" || r.Rating == 0 {
+		return errors.New("certain values don't have a value")
+	}
+
+	id, err := gonanoid.New(21)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec("INSERT into reviews (id, book_id, rating, review) VALUES ($1, $2, $3, $4)", id, r.Book.Id, r.Rating, r.Text)
+	if err != nil {
+		return err
+	}
+
+	r.Id = id
+	return nil
+}
+
+func (r *Review) TypeName() string {
+	return "review"
 }
